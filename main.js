@@ -1,46 +1,50 @@
-await fetchPosts();
+const ITEMS_PER_PAGE = 6;
+let currentPage = 1;
+let galleryItems = [];
 
-const urlParams = new URLSearchParams(window.location.search);
-const postId = urlParams.get('id');
-const page = urlParams.get('page');
+document.addEventListener('DOMContentLoaded', async () => {
+  await fetchPosts();
 
-if (page) {
-  currentPage = parseInt(page);
-}
+  const urlParams = new URLSearchParams(window.location.search);
+  const postId = urlParams.get('id');
+  const page = urlParams.get('page');
 
-if (postId) {
-  renderPost(postId);
-} else {
-  renderGallery();
-}
+  if (page) {
+    currentPage = parseInt(page);
+  }
 
-setupNavigation();
+  if (postId) {
+    renderPost(postId);
+  } else {
+    renderGallery();
+  }
+
+  setupNavigation();
 });
 
 async function fetchPosts() {
   try {
-    // In a real Netlify CMS setup without a build step, we might need to fetch individual JSON files
-    // or use a script to combine them. For this "no-build" setup to work immediately with the CMS,
-    // we'll simulate the fetch by looking for a data.json if it exists, otherwise fallback to empty.
-    // NOTE: Since we can't easily list files in client-side JS without a server index, 
-    // the standard way with Netlify CMS + Static Site is to use a build tool (like Hugo/Jekyll) 
-    // OR a script that runs before deploy to combine content.
-
-    // For this specific user request of "no build tools", we will assume there is a 
-    // pre-generated 'content/posts.json' or similar that the CMS updates, 
-    // OR we can keep using data.js but let the CMS edit IT directly (if configured to do so).
-
-    // However, Decap CMS usually works with collections of files. 
-    // To make this work seamlessly without a build step, we'll try to fetch a master 'posts.json'
-    // which would ideally be generated. 
-
-    // FOR NOW: To keep it working while the user sets up Netlify, we will fallback to the 
+    const response = await fetch('/content/posts.json');
+    if (response.ok) {
+      galleryItems = await response.json();
+    } else {
+      console.error('Failed to load posts:', response.status);
+      galleryItems = [];
+    }
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+    galleryItems = [];
   }
 }
 
 function renderGallery() {
   const grid = document.getElementById('gallery-grid');
   if (!grid) return;
+
+  if (galleryItems.length === 0) {
+    grid.innerHTML = '<p class="no-posts">No posts found. Create one in the admin panel!</p>';
+    return;
+  }
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
@@ -53,9 +57,7 @@ function renderGallery() {
 
     if (item.type === 'video') {
       typeIcon = '<div class="type-icon">▶</div>';
-      // Use a placeholder or the video thumbnail if available
       if (!thumbnail && item.videoUrl) {
-        // Try to get YouTube thumbnail
         const ytMatch = item.videoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
         if (ytMatch) {
           thumbnail = `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`;
@@ -63,7 +65,6 @@ function renderGallery() {
       }
     } else if (item.type === 'text') {
       typeIcon = '<div class="type-icon">T</div>';
-      // Text posts might not have an image, so we show a preview of the text or a placeholder
       if (!thumbnail) {
         return `
         <article class="gallery-item text-post fade-in" onclick="window.location.href='?id=${item.id}'" style="cursor: pointer;">
@@ -96,8 +97,16 @@ function renderGallery() {
     </article>
   `}).join('');
 
-  // Add pagination controls
+  renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
   const mainContent = document.querySelector('.main-content');
+  const oldPagination = mainContent.querySelector('.pagination');
+  if (oldPagination) oldPagination.remove();
+
+  if (totalPages <= 1) return;
+
   let paginationHTML = '<div class="pagination">';
 
   if (currentPage > 1) {
@@ -109,13 +118,6 @@ function renderGallery() {
   }
 
   paginationHTML += '</div>';
-
-  // Remove old pagination if exists
-  const oldPagination = mainContent.querySelector('.pagination');
-  if (oldPagination) {
-    oldPagination.remove();
-  }
-
   mainContent.insertAdjacentHTML('beforeend', paginationHTML);
 }
 
@@ -128,7 +130,6 @@ function renderPost(id) {
     return;
   }
 
-  // Update page title
   document.title = `${item.title} - Visual Journal`;
 
   let mediaContent = '';
@@ -153,21 +154,18 @@ function renderPost(id) {
       </button>
       <div class="post-header">
         <h1>${item.title}</h1>
-        <p class="post-meta">${item.category} • ${formatDate(item.date)}</p>
+        <p class="post-meta">${item.category || 'Journal'} • ${formatDate(item.date)}</p>
       </div>
       ${mediaContent}
       <div class="post-content">
-        ${item.body ? `<p>${item.body}</p>` : ''}
-        <p>This is a placeholder for the journal entry text. In a real implementation, you could add a 'description' field to your data.js file and display it here.</p>
+        ${item.body ? `<p>${item.body.replace(/\n/g, '<br>')}</p>` : ''}
       </div>
     </article>
   `;
 }
 
 function formatDate(dateString) {
-  // Handle both DD/MM/YYYY and ISO dates from CMS
   if (!dateString) return '';
-  if (dateString.includes('/')) return dateString;
   try {
     const date = new Date(dateString);
     return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
@@ -185,8 +183,6 @@ function setupNavigation() {
       const isExpanded = menuToggle.getAttribute('aria-expanded') === 'true';
       menuToggle.setAttribute('aria-expanded', !isExpanded);
       navLinks.classList.toggle('active');
-
-      // Animate hamburger
       menuToggle.classList.toggle('open');
     });
   }
