@@ -1,27 +1,20 @@
-// import { galleryItems } from './data.js'; // Deprecated
+await fetchPosts();
 
-const ITEMS_PER_PAGE = 6;
-let currentPage = 1;
-let galleryItems = [];
+const urlParams = new URLSearchParams(window.location.search);
+const postId = urlParams.get('id');
+const page = urlParams.get('page');
 
-document.addEventListener('DOMContentLoaded', async () => {
-  await fetchPosts();
+if (page) {
+  currentPage = parseInt(page);
+}
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const postId = urlParams.get('id');
-  const page = urlParams.get('page');
+if (postId) {
+  renderPost(postId);
+} else {
+  renderGallery();
+}
 
-  if (page) {
-    currentPage = parseInt(page);
-  }
-
-  if (postId) {
-    renderPost(postId);
-  } else {
-    renderGallery();
-  }
-
-  setupNavigation();
+setupNavigation();
 });
 
 async function fetchPosts() {
@@ -42,20 +35,6 @@ async function fetchPosts() {
     // which would ideally be generated. 
 
     // FOR NOW: To keep it working while the user sets up Netlify, we will fallback to the 
-    // hardcoded data if the fetch fails, but structure it to support the fetch.
-
-    const response = await fetch('/content/posts.json');
-    if (response.ok) {
-      galleryItems = await response.json();
-    } else {
-      // Fallback to the data from data.js if we can't fetch (for local dev without the CMS setup yet)
-      const { galleryItems: staticItems } = await import('./data.js');
-      galleryItems = staticItems;
-    }
-  } catch (error) {
-    console.log('Using static data fallback');
-    const { galleryItems: staticItems } = await import('./data.js');
-    galleryItems = staticItems;
   }
 }
 
