@@ -2,8 +2,6 @@ backend:
   name: github
   repo: mero2x/marulogue.github.io
   branch: main
-  base_url: https://marulogue-github-io.vercel.app
-  auth_endpoint: api/auth
 
 media_folder: "assets/uploads"
 public_folder: "/assets/uploads"
