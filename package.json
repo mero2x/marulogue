@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "VSCO-inspired blog",
   "scripts": {
-    "build": "node build.js"
+    "build": "node build.js",
+    "dev": "npx http-server -p 8000 -o"
   },
   "dependencies": {}
 }
