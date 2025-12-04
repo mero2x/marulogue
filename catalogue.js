@@ -38,7 +38,14 @@ const panelContent = document.getElementById('panel-content');
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     await loadData();
-    enrichData(); // Fetch missing details (countries, directors) in background
+    // enrichData(); // Removed global call to prevent browser crash
+
+    // Initialize page from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const pageParam = parseInt(urlParams.get('page'));
+    if (!isNaN(pageParam) && pageParam > 0) {
+        currentPage = pageParam;
+    }
 
     if (isAdmin) {
         fetchPopular();
@@ -106,40 +113,41 @@ function extractCreator(createdBy) {
     return createdBy[0].name;
 }
 
-async function enrichData() {
-    console.log('Enriching data...');
+async function enrichData(itemsToEnrich = []) {
+    if (!itemsToEnrich || itemsToEnrich.length === 0) return;
+
+    console.log(`Enriching ${itemsToEnrich.length} items...`);
     let updated = false;
 
-    // Create an array of promises to fetch data in parallel
-    const promises = watchedMovies.map(async (item) => {
+    // Process items sequentially to avoid rate limits (429 errors)
+    for (const item of itemsToEnrich) {
         // Check if we need to fetch details
-        // For movies: need production_countries and credits (for director)
-        // For TV: need origin_country (usually there) and created_by
-
         const isMovie = item.media_type === 'movie' || (!item.media_type && !item.first_air_date);
         const type = isMovie ? 'movie' : 'tv';
 
         const missingCountries = isMovie ? !item.production_countries : !item.origin_country;
-        const missingCredits = isMovie ? (!item.credits || !item.credits.crew) : !item.created_by;
+        const missingCredits = isMovie ? !item.director : !item.creator;
 
         if (missingCountries || missingCredits) {
             try {
                 const response = await fetch(`${BASE_URL}/${type}/${item.id}?api_key=${API_KEY}&append_to_response=credits`);
+
+                if (response.status === 429) {
+                    console.warn(`Rate limit hit for item ${item.id}. Skipping...`);
+                    continue;
+                }
+
                 if (response.ok) {
                     const data = await response.json();
 
                     // Update our local item with the new details
                     if (isMovie) {
                         item.production_countries = data.production_countries;
-                        // Extract and store only the director name, not the full credits object
                         item.director = extractDirector(data.credits);
-                        // Delete the credits object if it exists to save space
                         delete item.credits;
                     } else {
                         item.origin_country = data.origin_country;
-                        // Extract and store only the creator name
                         item.creator = extractCreator(data.created_by);
-                        // Delete the created_by object to save space
                         delete item.created_by;
                     }
                     updated = true;
@@ -147,10 +155,11 @@ async function enrichData() {
             } catch (e) {
                 console.warn(`Failed to enrich item ${item.id}:`, e);
             }
-        }
-    });
 
-    await Promise.all(promises);
+            // Add a small delay between requests
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+    }
 
     if (updated) {
         console.log('Data enriched.');
@@ -198,13 +207,12 @@ function setupEventListeners() {
     if (watchedBtn) {
         watchedBtn.addEventListener('click', () => {
             currentTab = 'watched';
-            currentPage = 1;
 
             // Toggle active state
             watchedBtn.classList.add('active');
             if (statsBtn) statsBtn.classList.remove('active');
 
-            renderMovies();
+            updatePage(1);
         });
     }
 
@@ -232,7 +240,7 @@ function setupEventListeners() {
         item.addEventListener('click', () => {
             currentSort = item.dataset.sort;
             sortResults();
-            renderMovies();
+            updatePage(1);
         });
     });
 
@@ -358,47 +366,62 @@ function renderMovies() {
         moviesGrid.appendChild(card);
     });
 
-    renderPagination(totalPages);
+    // Enrich only the visible items to avoid browser crash
+    enrichData(paginatedList);
+
+    console.log(`Rendering page ${currentPage}: ${paginatedList.length} items`);
+    renderPagination(totalPages, totalItems);
 }
 
-function renderPagination(totalPages) {
+function updatePage(newPage) {
+    currentPage = newPage;
+
+    // Update URL without reloading
+    const url = new URL(window.location);
+    url.searchParams.set('page', newPage);
+    window.history.pushState({ page: newPage }, '', url);
+
+    renderMovies();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderPagination(totalPages, totalItems) {
     if (totalPages <= 1 || !paginationContainer) return;
 
     const prevBtn = document.createElement('button');
     prevBtn.className = 'pagination-btn';
     prevBtn.textContent = '←';
     prevBtn.disabled = currentPage === 1;
-    prevBtn.onclick = () => {
-        if (currentPage > 1) {
-            currentPage--;
-            renderMovies();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-    };
+    prevBtn.onclick = () => updatePage(currentPage - 1);
 
     const nextBtn = document.createElement('button');
     nextBtn.className = 'pagination-btn';
     nextBtn.textContent = '→';
     nextBtn.disabled = currentPage === totalPages;
-    nextBtn.onclick = () => {
-        if (currentPage < totalPages) {
-            currentPage++;
-            renderMovies();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-    };
+    nextBtn.onclick = () => updatePage(currentPage + 1);
+
+    const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1;
+    const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalItems);
 
     const pageInfo = document.createElement('span');
     pageInfo.className = 'pagination-info';
     pageInfo.style.alignSelf = 'center';
     pageInfo.style.color = 'var(--text-secondary)';
     pageInfo.style.fontSize = '14px';
-    pageInfo.textContent = `${currentPage} / ${totalPages}`;
+    pageInfo.textContent = `${startItem}-${endItem} of ${totalItems}`;
 
     paginationContainer.appendChild(prevBtn);
     paginationContainer.appendChild(pageInfo);
     paginationContainer.appendChild(nextBtn);
 }
+
+// Handle browser back/forward buttons
+window.addEventListener('popstate', (event) => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const pageParam = parseInt(urlParams.get('page')) || 1;
+    currentPage = pageParam;
+    renderMovies();
+});
 
 function createMovieCard(item) {
     const div = document.createElement('div');
