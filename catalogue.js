@@ -728,6 +728,7 @@ window.rateMovie = async function (id, rating) {
         // Movie not yet added - store in pending edits
         if (!pendingEdits[id]) pendingEdits[id] = {};
         pendingEdits[id].rating = rating;
+        openMoviePanel(id); // Re-render panel to show updated stars
     }
 };
 
