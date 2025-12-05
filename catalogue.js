@@ -374,9 +374,6 @@ function renderMovies() {
         moviesGrid.appendChild(card);
     });
 
-    // Enrich only the visible items to avoid browser crash
-    enrichData(list);
-
     console.log(`Rendering page ${paginationMeta.currentPage}: ${list.length} items`);
     renderPagination(paginationMeta.totalPages, paginationMeta.totalItems);
 }
@@ -756,9 +753,20 @@ async function renderStats() {
 
         const personLabel = currentType === 'movie' ? 'Directors' : 'Creators';
 
+        // Check if data seems incomplete
+        const dataCompleteness = (stats.totalDirectors / stats.totalWatched) * 100;
+        const showWarning = dataCompleteness < 50; // If less than 50% have director data
+
         // --- Render HTML ---
         const statsHtml = `
             <div class="stats-container fade-in">
+                ${showWarning ? `
+                    <div class="empty-state" style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); margin-bottom: 2rem;">
+                        <p style="color: #ffc107; margin: 0;">
+                            ⚠️ Director and country data is incomplete. Only movies with enriched metadata are counted in the statistics below.
+                        </p>
+                    </div>
+                ` : ''}
                 <div class="stats-overview">
                     <div class="stat-card">
                         <div class="stat-number">${stats.totalWatched}</div>
