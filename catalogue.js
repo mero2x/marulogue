@@ -63,6 +63,9 @@ const CONTENTFUL_ACCESS_TOKEN = 'MdfnSyUm-p9jlDCG7HCyUuokTZAhyK7UxuXdKA_vXUo';
 const CONTENTFUL_ENTRY_ID = 'movieList';
 const CONTENTFUL_FIELD_ID = 'contents';
 
+// Cache for stats to improve performance
+const statsCache = {};
+
 // Store pagination metadata
 let paginationMeta = {
     currentPage: 1,
@@ -742,14 +745,23 @@ async function renderStats() {
     moviesGrid.innerHTML = `<div class="empty-state"><p>Loading stats...</p></div>`;
 
     try {
-        // Fetch stats from API
-        const response = await fetch(`/api/stats?type=${currentType}`);
+        let stats;
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch stats');
+        // Check cache first
+        if (statsCache[currentType]) {
+            stats = statsCache[currentType];
+        } else {
+            // Fetch stats from API
+            const response = await fetch(`/api/stats?type=${currentType}`);
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch stats');
+            }
+
+            stats = await response.json();
+            // Cache the result
+            statsCache[currentType] = stats;
         }
-
-        const stats = await response.json();
 
         const personLabel = currentType === 'movie' ? 'Directors' : 'Creators';
 
@@ -785,7 +797,7 @@ async function renderStats() {
                 <div class="stats-lists">
                     <div class="list-section">
                         <h3>Top 10 Countries</h3>
-                        ${renderBarChart(stats.topCountries.map(c => [c.name, c.count]), stats.totalWatched)}
+                        ${renderBarChart(stats.topCountries.map(c => [getCountryName(c.name), c.count]), stats.totalWatched)}
                     </div>
                     <div class="list-section">
                         <h3>Top 10 ${personLabel}</h3>
@@ -814,14 +826,14 @@ function renderBarChart(data, total) {
     const listItems = data.map(item => {
         const [label, count] = item;
         const percentage = (count / maxVal) * 100;
+        const countText = `${count} ${currentType === 'movie' ? 'films' : 'shows'}`;
 
         return `
             <li class="list-item">
                 <div class="list-label" title="${label}">${label}</div>
-                <div class="bar-container">
+                <div class="bar-container" data-tooltip="${countText}">
                     <div class="bar" style="width: ${percentage}%"></div>
                 </div>
-                <div class="count-label">${count}</div>
             </li>
         `;
     }).join('');
