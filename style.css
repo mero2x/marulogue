@@ -1224,6 +1224,7 @@ img {
     color: var(--text-secondary);
     padding: 10px 20px;
     font-size: 13px;
+    font-family: var(--font-main);
     cursor: pointer;
     transition: background 0.2s ease, color 0.2s ease;
 }

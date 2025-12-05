@@ -267,7 +267,7 @@ function setupEventListeners() {
         item.addEventListener('click', () => {
             currentSort = item.dataset.sort;
             sortResults();
-            updatePage(1);
+            renderMovies();
         });
     });
 
@@ -391,6 +391,12 @@ async function updatePage(newPage) {
 
     // Reload data from server for the new page
     await loadData(newPage, currentType);
+
+    // Apply client-side sort if needed
+    if (currentSort !== 'latest') {
+        sortResults();
+    }
+
     renderMovies();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
