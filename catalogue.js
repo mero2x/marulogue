@@ -732,9 +732,23 @@ function debounce(func, wait) {
     };
 }
 function getCountryName(name) {
-    if (name === 'United States of America') return 'USA';
-    if (name === 'United Kingdom') return 'UK';
-    return name;
+    const countryMap = {
+        'United States of America': 'USA',
+        'United Kingdom': 'UK',
+        'US': 'USA',
+        'GB': 'UK',
+        'JP': 'Japan',
+        'KR': 'South Korea',
+        'CN': 'China',
+        'FR': 'France',
+        'DE': 'Germany',
+        'CA': 'Canada',
+        'AU': 'Australia',
+        'IT': 'Italy',
+        'ES': 'Spain',
+        'IN': 'India'
+    };
+    return countryMap[name] || name;
 }
 
 async function renderStats() {
