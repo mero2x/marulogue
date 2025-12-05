@@ -48,7 +48,7 @@ function mapContentfulPost(entry) {
     id: sys.id,
     title: fields.title || 'Untitled',
     date: sys.createdAt,
-    type: fields.type || 'text', // Default to text, can be expanded
+    type: fields.type || (fields.images && fields.images.length > 0 ? 'photoset' : (fields.image ? 'photo' : 'text')),
     category: fields.category || 'Uncategorized',
     body: fields.body || '', // Keep as object for Rich Text, string for others
     images: fields.images ? fields.images.map(img => img.fields.file.url) : [],
@@ -58,23 +58,12 @@ function mapContentfulPost(entry) {
 
 async function fetchPosts() {
   try {
-    // 1. Fetch Local Posts
-    let localPosts = [];
-    try {
-      const localResponse = await fetch('./posts.json');
-      if (localResponse.ok) {
-        localPosts = await localResponse.json();
-      }
-    } catch (e) {
-      console.warn('Could not load local posts:', e);
-    }
-
-    // 2. Fetch Contentful Posts
+    // Fetch Contentful Posts
     let contentfulPosts = [];
     if (client) {
       try {
         const response = await client.getEntries({
-          content_type: 'post', // Assuming 'post' is the content type ID
+          content_type: 'post',
           order: '-sys.createdAt'
         });
         contentfulPosts = response.items.map(mapContentfulPost);
@@ -83,8 +72,7 @@ async function fetchPosts() {
       }
     }
 
-    // 3. Merge Posts (Contentful first)
-    galleryItems = [...contentfulPosts, ...localPosts];
+    galleryItems = contentfulPosts;
 
     // Sort by date (newest first)
     galleryItems.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -127,20 +115,7 @@ function renderGallery() {
           thumbnail = `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`;
         }
       }
-    } else if (item.type === 'text') {
-      if (!thumbnail) {
-        return `
-        <article class="gallery-item text-post fade-in" onclick="window.location.href='?id=${item.id}'" style="cursor: pointer;">
-          <div class="text-preview">
-            <h2>${item.title}</h2>
-            <span class="read-more">read more</span>
-          </div>
-          <div class="item-info">
-            <p class="date">${formatDate(item.date)}</p>
-          </div>
-        </article>`;
-      }
-    } else if (item.type === 'photoset' || (item.images && item.images.length > 0)) {
+    } else if (item.type === 'photoset' || (item.images && item.images.length > 1)) {
       // Render carousel for photosets in gallery
       const slides = item.images.map((img, index) => `
         <div class="carousel-slide ${index === 0 ? 'active' : ''}">
@@ -172,6 +147,19 @@ function renderGallery() {
           <p class="date">${formatDate(item.date)}</p>
         </div>
       </article>`;
+    } else if (item.type === 'text') {
+      if (!thumbnail) {
+        return `
+        <article class="gallery-item text-post fade-in" onclick="window.location.href='?id=${item.id}'" style="cursor: pointer;">
+          <div class="text-preview">
+            <h2>${item.title}</h2>
+            <span class="read-more">read more</span>
+          </div>
+          <div class="item-info">
+            <p class="date">${formatDate(item.date)}</p>
+          </div>
+        </article>`;
+      }
     }
 
     return `

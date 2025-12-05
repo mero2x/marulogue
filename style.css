@@ -571,7 +571,7 @@ img {
     cursor: pointer;
     z-index: 10;
     transition: background-color 0.2s ease, opacity 0.2s ease;
-    opacity: 0;
+    opacity: 0.3;
 }
 
 .carousel-container:hover .carousel-btn {
@@ -1804,11 +1804,29 @@ img {
         font-size: 1.8rem;
     }
 }
+
 /* --- Stats Improvements --- */
-.list-label { width: 140px !important; }
+.list-label {
+    width: 140px !important;
+}
+
 /* Extended Palette for Stats Bars */
-.list-item:nth-child(6) .bar { background-color: #e74c3c; }
-.list-item:nth-child(7) .bar { background-color: #1abc9c; }
-.list-item:nth-child(8) .bar { background-color: #e91e63; }
-.list-item:nth-child(9) .bar { background-color: #00bcd4; }
-.list-item:nth-child(10) .bar { background-color: #3f51b5; }
+.list-item:nth-child(6) .bar {
+    background-color: #e74c3c;
+}
+
+.list-item:nth-child(7) .bar {
+    background-color: #1abc9c;
+}
+
+.list-item:nth-child(8) .bar {
+    background-color: #e91e63;
+}
+
+.list-item:nth-child(9) .bar {
+    background-color: #00bcd4;
+}
+
+.list-item:nth-child(10) .bar {
+    background-color: #3f51b5;
+}
