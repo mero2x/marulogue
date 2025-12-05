@@ -622,7 +622,9 @@ async function openMoviePanel(id) {
             ${posterSelectorHtml}
         `;
 
-        if (isAdmin && isWatched) {
+
+        // Set up review input listener for admin mode
+        if (isAdmin) {
             const reviewInput = document.getElementById('review-input');
             if (reviewInput) {
                 reviewInput.addEventListener('input', debounce(() => saveReview(id, reviewInput.value), 1000));
