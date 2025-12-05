@@ -223,8 +223,12 @@ app.get('/api/movies', async (req, res) => {
                 return itemType === type;
             });
 
-            // Sort (Newest watched first)
-            filtered.sort((a, b) => new Date(b.dateWatched || 0) - new Date(a.dateWatched || 0));
+            // Sort (Latest release date first)
+            filtered.sort((a, b) => {
+                const dateA = new Date(a.release_date || a.first_air_date || 0);
+                const dateB = new Date(b.release_date || b.first_air_date || 0);
+                return dateB - dateA;
+            });
 
             // Paginate
             const startIndex = (page - 1) * limit;
