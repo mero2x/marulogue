@@ -203,6 +203,7 @@ app.get('/api/movies', async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = 30;
         const type = req.query.type || 'movie';
+        const sort = req.query.sort || 'latest';
 
         if (!accessToken) {
             console.warn('No Contentful Access Token provided.');
@@ -223,11 +224,26 @@ app.get('/api/movies', async (req, res) => {
                 return itemType === type;
             });
 
-            // Sort (Latest release date first)
+            // Sort based on parameter
             filtered.sort((a, b) => {
                 const dateA = new Date(a.release_date || a.first_air_date || 0);
                 const dateB = new Date(b.release_date || b.first_air_date || 0);
-                return dateB - dateA;
+
+                switch (sort) {
+                    case 'rating_desc':
+                        const ratingA = parseFloat(a.rating) || 0;
+                        const ratingB = parseFloat(b.rating) || 0;
+                        return ratingB - ratingA;
+                    case 'rating_asc':
+                        const ratingA2 = parseFloat(a.rating) || 0;
+                        const ratingB2 = parseFloat(b.rating) || 0;
+                        return ratingA2 - ratingB2;
+                    case 'earliest':
+                        return dateA - dateB;
+                    case 'latest':
+                    default:
+                        return dateB - dateA;
+                }
             });
 
             // Paginate

@@ -77,8 +77,8 @@ let paginationMeta = {
 
 async function loadData(page = 1, type = 'movie') {
     try {
-        // Fetch from serverless API with pagination
-        const apiUrl = `/api/movies?page=${page}&type=${type}`;
+        // Fetch from serverless API with pagination and sort
+        const apiUrl = `/api/movies?page=${page}&type=${type}&sort=${currentSort}`;
         const response = await fetch(apiUrl);
 
         if (response.ok) {
@@ -264,9 +264,10 @@ function setupEventListeners() {
 
     // Filter Dropdown
     filterItems.forEach(item => {
-        item.addEventListener('click', () => {
+        item.addEventListener('click', async () => {
             currentSort = item.dataset.sort;
-            sortResults();
+            // Reload from server with new sort
+            await loadData(currentPage, currentType);
             renderMovies();
         });
     });
@@ -389,13 +390,8 @@ async function updatePage(newPage) {
     url.searchParams.set('page', newPage);
     window.history.pushState({ page: newPage }, '', url);
 
-    // Reload data from server for the new page
+    // Reload data from server for the new page (with current sort)
     await loadData(newPage, currentType);
-
-    // Apply client-side sort if needed
-    if (currentSort !== 'latest') {
-        sortResults();
-    }
 
     renderMovies();
     window.scrollTo({ top: 0, behavior: 'smooth' });
