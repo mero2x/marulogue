@@ -36,58 +36,50 @@ module.exports = async (req, res) => {
         // Calculate stats
         const totalWatched = filteredMovies.length;
 
-        // Count unique countries
+        // Count unique countries and directors
         const countries = new Set();
+        const directors = new Set();
+        const countryCount = {};
+        const directorCount = {};
+
         filteredMovies.forEach(item => {
+            // Count Countries
             if (item.production_countries && Array.isArray(item.production_countries)) {
-                item.production_countries.forEach(country => {
-                    if (country.name) countries.add(country.name);
+                item.production_countries.forEach(c => {
+                    // Handle both object {name: 'US'} and string 'US' formats
+                    const name = typeof c === 'string' ? c : (c.name || c.iso_3166_1);
+                    if (name) {
+                        countries.add(name);
+                        countryCount[name] = (countryCount[name] || 0) + 1;
+                    }
                 });
             } else if (item.origin_country && Array.isArray(item.origin_country)) {
-                item.origin_country.forEach(country => countries.add(country));
+                item.origin_country.forEach(c => {
+                    countries.add(c);
+                    countryCount[c] = (countryCount[c] || 0) + 1;
+                });
             }
-        });
 
-        // Count unique directors/creators
-        const directors = new Set();
-        filteredMovies.forEach(item => {
-            if (type === 'movie' && item.director) {
-                directors.add(item.director);
-            } else if (type === 'tv' && item.creator) {
-                directors.add(item.creator);
+            // Count Directors/Creators
+            const name = type === 'movie' ? item.director : (item.created_by ? item.created_by : item.creator);
+            if (name && name !== 'Unknown') {
+                name.split(',').forEach(d => {
+                    const trimmed = d.trim();
+                    if (trimmed) {
+                        directors.add(trimmed);
+                        directorCount[trimmed] = (directorCount[trimmed] || 0) + 1;
+                    }
+                });
             }
         });
 
         // Top 10 countries
-        const countryCount = {};
-        filteredMovies.forEach(item => {
-            if (item.production_countries && Array.isArray(item.production_countries)) {
-                item.production_countries.forEach(country => {
-                    if (country.name) {
-                        countryCount[country.name] = (countryCount[country.name] || 0) + 1;
-                    }
-                });
-            } else if (item.origin_country && Array.isArray(item.origin_country)) {
-                item.origin_country.forEach(country => {
-                    countryCount[country] = (countryCount[country] || 0) + 1;
-                });
-            }
-        });
-
         const topCountries = Object.entries(countryCount)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 10)
             .map(([name, count]) => ({ name, count }));
 
         // Top 10 directors/creators
-        const directorCount = {};
-        filteredMovies.forEach(item => {
-            const name = type === 'movie' ? item.director : item.creator;
-            if (name) {
-                directorCount[name] = (directorCount[name] || 0) + 1;
-            }
-        });
-
         const topDirectors = Object.entries(directorCount)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 10)

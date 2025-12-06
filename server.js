@@ -185,6 +185,7 @@ app.post('/api/batch-update', async (req, res) => {
             } else if (change.type === 'update') {
                 const index = currentMovies.findIndex(m => m.id === change.id);
                 if (index !== -1) {
+                    console.log(`Updating movie ${change.id}:`, change.updates);
                     currentMovies[index] = { ...currentMovies[index], ...change.updates };
                     updated++;
                 }
@@ -326,6 +327,94 @@ app.get('/api/movies', async (req, res) => {
     } catch (error) {
         console.error('Error fetching from Contentful:', error);
         res.json({ movies: [], pagination: {} });
+    }
+});
+
+// API endpoint for stats
+app.get('/api/stats', async (req, res) => {
+    try {
+        const type = req.query.type || 'movie'; // 'movie' or 'tv'
+
+        const spaceId = process.env.CONTENTFUL_SPACE_ID;
+        const accessToken = process.env.CONTENTFUL_ACCESS_TOKEN;
+        const entryId = process.env.CONTENTFUL_ENTRY_ID;
+        const fieldId = process.env.CONTENTFUL_FIELD_ID;
+
+        const url = `https://cdn.contentful.com/spaces/${spaceId}/environments/master/entries/${entryId}?access_token=${accessToken}&t=${Date.now()}`;
+
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(`Contentful API error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const allMovies = data.fields[fieldId] || [];
+
+        // Filter
+        const filteredMovies = allMovies.filter(item => {
+            const itemType = item.media_type || (item.first_air_date ? 'tv' : 'movie');
+            return itemType === type;
+        });
+
+        // Stats Logic
+        const totalWatched = filteredMovies.length;
+        const countries = new Set();
+        const directors = new Set();
+        const countryCount = {};
+        const directorCount = {};
+
+        filteredMovies.forEach(item => {
+            // Count Countries
+            if (item.production_countries && Array.isArray(item.production_countries)) {
+                item.production_countries.forEach(c => {
+                    const name = typeof c === 'string' ? c : (c.name || c.iso_3166_1);
+                    if (name) {
+                        countries.add(name);
+                        countryCount[name] = (countryCount[name] || 0) + 1;
+                    }
+                });
+            } else if (item.origin_country && Array.isArray(item.origin_country)) {
+                item.origin_country.forEach(c => {
+                    countries.add(c);
+                    countryCount[c] = (countryCount[c] || 0) + 1;
+                });
+            }
+
+            // Count Directors
+            const name = type === 'movie' ? item.director : (item.created_by ? item.created_by : item.director);
+            if (name && name !== 'Unknown') {
+                name.split(',').forEach(d => {
+                    const trimmed = d.trim();
+                    if (trimmed) {
+                        directors.add(trimmed);
+                        directorCount[trimmed] = (directorCount[trimmed] || 0) + 1;
+                    }
+                });
+            }
+        });
+
+        const topCountries = Object.entries(countryCount)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([name, count]) => ({ name, count }));
+
+        const topDirectors = Object.entries(directorCount)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([name, count]) => ({ name, count }));
+
+        res.json({
+            totalWatched,
+            totalCountries: countries.size,
+            totalDirectors: directors.size,
+            topCountries,
+            topDirectors
+        });
+
+    } catch (error) {
+        console.error('Error fetching stats:', error);
+        res.status(500).json({ error: 'Failed to fetch stats' });
     }
 });
 
