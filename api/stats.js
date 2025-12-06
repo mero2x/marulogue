@@ -18,8 +18,8 @@ module.exports = async (req, res) => {
     try {
         const type = req.query.type || 'movie'; // 'movie' or 'tv'
 
-        // Fetch the movie list entry from Contentful
-        const entry = await client.getEntry('movieList');
+        // Fetch the movie list entry from Contentful (with cache bust)
+        const entry = await client.getEntry('movieList', { query: { t: Date.now() } });
 
         if (!entry || !entry.fields || !entry.fields.contents) {
             return res.status(404).json({ error: 'Movie list not found' });
