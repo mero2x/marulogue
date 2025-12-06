@@ -314,27 +314,44 @@ async function handleSearch() {
         }
     } else {
         // Public: Search entire database via API
+        
+        // Reset Tab Buttons (Fix for Stats view persisting)
+        if (typeof watchedBtn !== 'undefined' && watchedBtn) watchedBtn.classList.remove('active');
+        if (typeof statsBtn !== 'undefined' && statsBtn) statsBtn.classList.remove('active');
+        
         if (!query) {
             currentTab = 'watched';
+            if (typeof watchedBtn !== 'undefined' && watchedBtn) watchedBtn.classList.add('active');
             currentPage = 1;
             await loadData(1, currentType);
             renderMovies();
             return;
         }
 
+        // Show Loading (UI Feedback)
+        if (typeof moviesGrid !== 'undefined' && moviesGrid) {
+            moviesGrid.innerHTML = '<div class="empty-state"><p>Searching database...</p></div>';
+        }
+        currentTab = 'search';
+
         try {
             const timestamp = new Date().getTime();
             const response = await fetch(`/api/movies?type=${currentType}&search=${encodeURIComponent(query)}&_t=${timestamp}`);
             const data = await response.json();
-
+            
             if (response.ok) {
                 searchResults = data.movies || [];
-                currentTab = 'search';
-                currentPage = 1;
                 renderMovies();
+            } else {
+                if (typeof moviesGrid !== 'undefined' && moviesGrid) {
+                    moviesGrid.innerHTML = '<div class="empty-state"><p>Search failed. Please try again.</p></div>';
+                }
             }
         } catch (error) {
             console.error('Search failed:', error);
+            if (typeof moviesGrid !== 'undefined' && moviesGrid) {
+                moviesGrid.innerHTML = '<div class="empty-state"><p>Search error. Please check your connection.</p></div>';
+            }
         }
     }
 }
