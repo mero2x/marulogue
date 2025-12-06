@@ -314,11 +314,11 @@ async function handleSearch() {
         }
     } else {
         // Public: Search entire database via API
-        
+
         // Reset Tab Buttons (Fix for Stats view persisting)
         if (typeof watchedBtn !== 'undefined' && watchedBtn) watchedBtn.classList.remove('active');
         if (typeof statsBtn !== 'undefined' && statsBtn) statsBtn.classList.remove('active');
-        
+
         if (!query) {
             currentTab = 'watched';
             if (typeof watchedBtn !== 'undefined' && watchedBtn) watchedBtn.classList.add('active');
@@ -338,7 +338,7 @@ async function handleSearch() {
             const timestamp = new Date().getTime();
             const response = await fetch(`/api/movies?type=${currentType}&search=${encodeURIComponent(query)}&_t=${timestamp}`);
             const data = await response.json();
-            
+
             if (response.ok) {
                 searchResults = data.movies || [];
                 renderMovies();
@@ -663,12 +663,51 @@ window.toggleWatched = async function (id) {
         // Add Movie
         const item = searchResults.find(m => m.id === id);
         if (item) {
+            // Fetch full details from TMDB (director/creator, countries)
+            let director = 'Unknown';
+            let creator = 'Unknown';
+            let production_countries = [];
+            let origin_country = [];
+
+            try {
+                console.log(`Fetching full details for ${item.title || item.name}...`);
+
+                const detailsUrl = `${BASE_URL}/${currentType}/${id}?api_key=${API_KEY}`;
+                const detailsResponse = await fetch(detailsUrl);
+                const details = await detailsResponse.json();
+
+                if (currentType === 'movie') {
+                    // For movies: get director from credits
+                    const creditsUrl = `${BASE_URL}/movie/${id}/credits?api_key=${API_KEY}`;
+                    const creditsResponse = await fetch(creditsUrl);
+                    const credits = await creditsResponse.json();
+
+                    const directorData = credits.crew?.find(c => c.job === 'Director');
+                    director = directorData ? directorData.name : 'Unknown';
+                    production_countries = details.production_countries?.map(c => c.iso_3166_1) || [];
+
+                    console.log(`  ✓ Director: ${director}, Countries: ${production_countries.join(', ')}`);
+                } else {
+                    // For TV: get creator
+                    creator = details.created_by?.map(c => c.name).join(', ') || 'Unknown';
+                    origin_country = details.origin_country || [];
+
+                    console.log(`  ✓ Creator: ${creator}, Countries: ${origin_country.join(', ')}`);
+                }
+            } catch (e) {
+                console.warn('Could not fetch full details:', e);
+            }
+
             const newMovie = {
                 ...item,
                 media_type: currentType,
                 rating: 0,
                 review: '',
-                dateWatched: new Date().toISOString()
+                dateWatched: new Date().toISOString(),
+                director: currentType === 'movie' ? director : undefined,
+                creator: currentType === 'tv' ? creator : undefined,
+                production_countries: currentType === 'movie' ? production_countries : undefined,
+                origin_country: currentType === 'tv' ? origin_country : undefined
             };
 
             // Optimistic update
