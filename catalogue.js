@@ -818,8 +818,18 @@ window.rateMovie = async function (id, rating) {
         watchedMovies[index].rating = rating;
         openMoviePanel(id);
 
-        // Queue Change
-        changeQueue.push({ type: 'update', id, updates: { rating } });
+        // Queue Change - merge with existing update if present
+        const existingUpdateIndex = changeQueue.findIndex(c => c.type === 'update' && c.id === id);
+        if (existingUpdateIndex !== -1) {
+            // Merge with existing update
+            changeQueue[existingUpdateIndex].updates = {
+                ...changeQueue[existingUpdateIndex].updates,
+                rating
+            };
+        } else {
+            // Add new update
+            changeQueue.push({ type: 'update', id, updates: { rating } });
+        }
         updateSaveButton();
         console.log('Queued rating update');
     } else {
@@ -845,8 +855,16 @@ async function saveReview(id, text) {
             status.style.color = '#ff9800'; // Orange for pending
         }
 
-        // Queue Change
-        changeQueue.push({ type: 'update', id, updates: { review: text } });
+        // Queue Change - merge with existing update if present
+        const existingUpdateIndex = changeQueue.findIndex(c => c.type === 'update' && c.id === id);
+        if (existingUpdateIndex !== -1) {
+            changeQueue[existingUpdateIndex].updates = {
+                ...changeQueue[existingUpdateIndex].updates,
+                review: text
+            };
+        } else {
+            changeQueue.push({ type: 'update', id, updates: { review: text } });
+        }
         updateSaveButton();
         console.log('Queued review update');
 
@@ -883,8 +901,16 @@ window.selectPoster = async function (id, posterPath) {
         const target = event.target;
         if (target) target.classList.add('selected');
 
-        // Queue Change
-        changeQueue.push({ type: 'update', id, updates: { poster_path: posterPath } });
+        // Queue Change - merge with existing update if present
+        const existingUpdateIndex = changeQueue.findIndex(c => c.type === 'update' && c.id === id);
+        if (existingUpdateIndex !== -1) {
+            changeQueue[existingUpdateIndex].updates = {
+                ...changeQueue[existingUpdateIndex].updates,
+                poster_path: posterPath
+            };
+        } else {
+            changeQueue.push({ type: 'update', id, updates: { poster_path: posterPath } });
+        }
         updateSaveButton();
         console.log('Queued poster update');
 
