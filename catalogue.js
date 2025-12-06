@@ -17,108 +17,6 @@ let currentMovieId = null;
 let currentPage = 1;
 const ITEMS_PER_PAGE = 30;
 
-// Temporary storage for rating/review before movie is added
-let pendingEdits = {};
-
-// Queue for BATCH SAVING (Safest way)
-let changeQueue = []; // Array of { type: 'add'|'update'|'delete', id: ..., data: ..., updates: ... }
-
-// Update UI to show/hide Save Button
-function updateSaveButton() {
-    let saveBtn = document.getElementById('save-changes-btn');
-
-    // Create button if it doesn't exist
-    if (!saveBtn) {
-        saveBtn = document.createElement('button');
-        saveBtn.id = 'save-changes-btn';
-        saveBtn.className = 'save-fab';
-        saveBtn.innerHTML = `
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                <polyline points="7 3 7 8 15 8"></polyline>
-            </svg>
-            <span>Save Changes</span>
-        `;
-        saveBtn.onclick = saveAllChanges;
-        document.body.appendChild(saveBtn);
-    }
-
-    // Show if there are unsaved changes
-    if (changeQueue.length > 0) {
-        saveBtn.classList.add('visible');
-        saveBtn.querySelector('span').textContent = `Save Changes (${changeQueue.length})`;
-
-        // Add navigation warning
-        window.onbeforeunload = () => "You have unsaved changes. Are you sure you want to leave?";
-    } else {
-        saveBtn.classList.remove('visible');
-        window.onbeforeunload = null;
-    }
-}
-
-// Save all queued changes
-async function saveAllChanges() {
-    const saveBtn = document.getElementById('save-changes-btn');
-    if (!saveBtn || changeQueue.length === 0) return;
-
-    saveBtn.classList.add('saving');
-    saveBtn.querySelector('span').textContent = 'Saving...';
-    saveBtn.disabled = true;
-
-    try {
-        const response = await fetch('/api/batch-update', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ changes: changeQueue })
-        });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.message || 'Save failed');
-        }
-
-        const result = await response.json();
-        console.log('Batch save successful:', result);
-
-        // Success animation
-        saveBtn.classList.remove('saving');
-        saveBtn.classList.add('success');
-        saveBtn.innerHTML = `
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            <span>Saved!</span>
-        `;
-
-        // Clear queue
-        changeQueue = [];
-        window.onbeforeunload = null;
-
-        // Reset button after delay
-        setTimeout(() => {
-            updateSaveButton(); // Will hide it since queue is empty
-            saveBtn.innerHTML = `
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                    <polyline points="7 3 7 8 15 8"></polyline>
-                </svg>
-                <span>Save Changes</span>
-            `;
-            saveBtn.classList.remove('success');
-            saveBtn.disabled = false;
-        }, 2000);
-
-    } catch (error) {
-        console.error('Save failed:', error);
-        alert(`Failed to save changes: ${error.message}`);
-        saveBtn.classList.remove('saving');
-        saveBtn.querySelector('span').textContent = 'Retry Save';
-        saveBtn.disabled = false;
-    }
-}
-
 // DOM Elements
 const searchInput = document.getElementById('movie-search-input');
 const searchBtn = document.getElementById('search-btn');
@@ -179,8 +77,8 @@ let paginationMeta = {
 
 async function loadData(page = 1, type = 'movie') {
     try {
-        // Fetch from serverless API with pagination and sort
-        const apiUrl = `/api/movies?page=${page}&type=${type}&sort=${currentSort}`;
+        // Fetch from serverless API with pagination
+        const apiUrl = `/api/movies?page=${page}&type=${type}`;
         const response = await fetch(apiUrl);
 
         if (response.ok) {
@@ -366,11 +264,10 @@ function setupEventListeners() {
 
     // Filter Dropdown
     filterItems.forEach(item => {
-        item.addEventListener('click', async () => {
+        item.addEventListener('click', () => {
             currentSort = item.dataset.sort;
-            // Reload from server with new sort
-            await loadData(currentPage, currentType);
-            renderMovies();
+            sortResults();
+            updatePage(1);
         });
     });
 
@@ -416,29 +313,22 @@ async function handleSearch() {
             console.error('Error searching:', error);
         }
     } else {
-        // Public: Search entire database via API
+        // Public: Filter Local List
         if (!query) {
             currentTab = 'watched';
-            currentPage = 1;
-            await loadData(1, currentType);
             renderMovies();
             return;
         }
 
-        try {
-            const timestamp = new Date().getTime();
-            const response = await fetch(`/api/movies?type=${currentType}&search=${encodeURIComponent(query)}&_t=${timestamp}`);
-            const data = await response.json();
+        const lowerQuery = query.toLowerCase();
+        searchResults = watchedMovies.filter(m => {
+            const title = m.title || m.name || '';
+            return title.toLowerCase().includes(lowerQuery);
+        });
 
-            if (response.ok) {
-                searchResults = data.movies || [];
-                currentTab = 'search';
-                currentPage = 1;
-                renderMovies();
-            }
-        } catch (error) {
-            console.error('Search failed:', error);
-        }
+        currentTab = 'search';
+        currentPage = 1;
+        renderMovies();
     }
 }
 
@@ -488,11 +378,7 @@ function renderMovies() {
     });
 
     console.log(`Rendering page ${paginationMeta.currentPage}: ${list.length} items`);
-
-    // Only show pagination for watched tab (not for admin search results)
-    if (currentTab === 'watched') {
-        renderPagination(paginationMeta.totalPages, paginationMeta.totalItems);
-    }
+    renderPagination(paginationMeta.totalPages, paginationMeta.totalItems);
 }
 
 async function updatePage(newPage) {
@@ -503,9 +389,8 @@ async function updatePage(newPage) {
     url.searchParams.set('page', newPage);
     window.history.pushState({ page: newPage }, '', url);
 
-    // Reload data from server for the new page (with current sort)
+    // Reload data from server for the new page
     await loadData(newPage, currentType);
-
     renderMovies();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -652,24 +537,21 @@ async function openMoviePanel(id) {
                 </div>
             `;
 
-            // Always show rating/review in admin mode (use pending edits if not yet added)
-            const pending = pendingEdits[id] || {};
-            const displayRating = isWatched ? userRating : (pending.rating || 0);
-            const displayReview = isWatched ? userReview : (pending.review || '');
-
-            reviewHtml = `
-                <div class="panel-section fade-in">
-                    <h3>Rating</h3>
-                    <div class="panel-rating">
-                        ${renderStarRating(id, displayRating, true)}
+            if (isWatched) {
+                reviewHtml = `
+                    <div class="panel-section fade-in">
+                        <h3>Rating</h3>
+                        <div class="panel-rating">
+                            ${renderStarRating(id, userRating, true)}
+                        </div>
                     </div>
-                </div>
-                <div class="panel-section fade-in">
-                    <h3>Review</h3>
-                    <textarea class="review-input" id="review-input" placeholder="Write your review here...">${displayReview}</textarea>
-                    <div class="save-status" id="save-status"></div>
-                </div>
-            `;
+                    <div class="panel-section fade-in">
+                        <h3>Review</h3>
+                        <textarea class="review-input" id="review-input" placeholder="Write your review here...">${userReview}</textarea>
+                        <div class="save-status" id="save-status"></div>
+                    </div>
+                `;
+            }
         } else {
             // Public View (Read Only)
             if (isWatched) {
@@ -728,9 +610,7 @@ async function openMoviePanel(id) {
             ${posterSelectorHtml}
         `;
 
-
-        // Set up review input listener for admin mode
-        if (isAdmin) {
+        if (isAdmin && isWatched) {
             const reviewInput = document.getElementById('review-input');
             if (reviewInput) {
                 reviewInput.addEventListener('input', debounce(() => saveReview(id, reviewInput.value), 1000));
@@ -751,93 +631,81 @@ function closePanel() {
 }
 
 // Global Handlers (Admin Only)
-let isTogglingWatched = false;
-
 window.toggleWatched = async function (id) {
-    if (!isAdmin || isTogglingWatched) return;
-
-    isTogglingWatched = true;
+    if (!isAdmin) return;
 
     const index = watchedMovies.findIndex(m => m.id === id);
-
     if (index === -1) {
         // Add Movie
         const item = searchResults.find(m => m.id === id);
         if (item) {
-            // Get any pending rating/review/poster from the panel
-            const pending = pendingEdits[id] || {};
-
             const newMovie = {
                 ...item,
                 media_type: currentType,
-                rating: pending.rating || 0,
-                review: pending.review || '',
-                poster_path: pending.poster_path || item.poster_path,
+                rating: 0,
+                review: '',
                 dateWatched: new Date().toISOString()
             };
-
-            // Clear pending edits
-            delete pendingEdits[id];
 
             // Optimistic update
             watchedMovies.push(newMovie);
             renderMovies();
             if (currentMovieId === id) openMoviePanel(id);
 
-            // Queue Change
-            changeQueue.push({ type: 'add', data: newMovie });
-            updateSaveButton();
-            console.log('Queued add:', newMovie.title);
+            try {
+                const response = await fetch('/api/add-movie', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newMovie)
+                });
+                if (!response.ok) throw new Error('Failed to save to server');
+                console.log('Movie added to server');
+            } catch (e) {
+                console.error('Add failed:', e);
+                alert('Using local backup only. Server save failed.');
+            }
         }
     } else {
         // Remove Movie
         const idToDelete = watchedMovies[index].id;
-        const movieTitle = watchedMovies[index].title || watchedMovies[index].name;
 
         // Optimistic update
         watchedMovies.splice(index, 1);
         renderMovies();
         if (currentMovieId === id) openMoviePanel(id);
 
-        // Queue Change
-        changeQueue.push({ type: 'delete', id: idToDelete });
-        updateSaveButton();
-        console.log('Queued delete:', movieTitle);
+        try {
+            const response = await fetch('/api/delete-movie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: idToDelete })
+            });
+            if (!response.ok) throw new Error('Failed to delete from server');
+            console.log('Movie deleted from server');
+        } catch (e) {
+            console.error('Delete failed:', e);
+            alert('Server delete failed.');
+        }
     }
-
-    // Small delay to prevent double-clicks
-    setTimeout(() => { isTogglingWatched = false; }, 300);
 };
 
 window.rateMovie = async function (id, rating) {
     if (!isAdmin) return;
     const index = watchedMovies.findIndex(m => m.id === id);
-
-    // Optimistic Update
     if (index !== -1) {
+        // Optimistic
         watchedMovies[index].rating = rating;
-        openMoviePanel(id);
+        openMoviePanel(id); // Re-render panel
 
-        // Queue Change - merge with existing update if present
-        const existingUpdateIndex = changeQueue.findIndex(c => c.type === 'update' && c.id === id);
-        if (existingUpdateIndex !== -1) {
-            // Merge with existing update
-            changeQueue[existingUpdateIndex].updates = {
-                ...changeQueue[existingUpdateIndex].updates,
-                rating
-            };
-        } else {
-            // Add new update
-            changeQueue.push({ type: 'update', id, updates: { rating } });
+        try {
+            await fetch('/api/update-movie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, updates: { rating } })
+            });
+        } catch (e) {
+            console.error('Rating save failed', e);
         }
-        updateSaveButton();
-        console.log('Queued rating update');
-    } else {
-        // Movie not yet added - store in pending edits
-        if (!pendingEdits[id]) pendingEdits[id] = {};
-        pendingEdits[id].rating = rating;
-        openMoviePanel(id);
-        console.log('Stored pending rating');
     }
 };
 
@@ -845,37 +713,27 @@ async function saveReview(id, text) {
     if (!isAdmin) return;
     const index = watchedMovies.findIndex(m => m.id === id);
     if (index !== -1) {
-        // Optimistic Update
         watchedMovies[index].review = text;
-
-        // Show saving status
         const status = document.getElementById('save-status');
-        if (status) {
-            status.textContent = 'Pending save...';
-            status.style.color = '#ff9800'; // Orange for pending
-        }
+        if (status) status.textContent = 'Saving...';
 
-        // Queue Change - merge with existing update if present
-        const existingUpdateIndex = changeQueue.findIndex(c => c.type === 'update' && c.id === id);
-        if (existingUpdateIndex !== -1) {
-            changeQueue[existingUpdateIndex].updates = {
-                ...changeQueue[existingUpdateIndex].updates,
-                review: text
-            };
-        } else {
-            changeQueue.push({ type: 'update', id, updates: { review: text } });
-        }
-        updateSaveButton();
-        console.log('Queued review update');
-
-    } else {
-        // Movie not yet added - store in pending edits
-        if (!pendingEdits[id]) pendingEdits[id] = {};
-        pendingEdits[id].review = text;
-        const status = document.getElementById('save-status');
-        if (status) {
-            status.textContent = 'Will save when you add this to library';
-            setTimeout(() => status.textContent = '', 2000);
+        try {
+            const response = await fetch('/api/update-movie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, updates: { review: text } })
+            });
+            if (response.ok) {
+                if (status) {
+                    status.textContent = 'Saved';
+                    setTimeout(() => status.textContent = '', 2000);
+                }
+            } else {
+                if (status) status.textContent = 'Error';
+            }
+        } catch (e) {
+            console.error('Review save failed', e);
+            if (status) status.textContent = 'Error';
         }
     }
 }
@@ -885,7 +743,6 @@ window.selectPoster = async function (id, posterPath) {
 
     const index = watchedMovies.findIndex(m => m.id === id);
     if (index !== -1) {
-        // Optimistic Update
         watchedMovies[index].poster_path = posterPath;
 
         // Update the main poster image
@@ -898,39 +755,19 @@ window.selectPoster = async function (id, posterPath) {
         document.querySelectorAll('.poster-option').forEach(img => {
             img.classList.remove('selected');
         });
-        const target = event.target;
+        const target = event.target; // event is global here in inline handler logic
         if (target) target.classList.add('selected');
 
-        // Queue Change - merge with existing update if present
-        const existingUpdateIndex = changeQueue.findIndex(c => c.type === 'update' && c.id === id);
-        if (existingUpdateIndex !== -1) {
-            changeQueue[existingUpdateIndex].updates = {
-                ...changeQueue[existingUpdateIndex].updates,
-                poster_path: posterPath
-            };
-        } else {
-            changeQueue.push({ type: 'update', id, updates: { poster_path: posterPath } });
+        // Save
+        try {
+            await fetch('/api/update-movie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, updates: { poster_path: posterPath } })
+            });
+        } catch (e) {
+            console.error('Poster save failed', e);
         }
-        updateSaveButton();
-        console.log('Queued poster update');
-
-    } else {
-        // Movie not yet added - store in pending edits
-        if (!pendingEdits[id]) pendingEdits[id] = {};
-        pendingEdits[id].poster_path = posterPath;
-
-        // Update the main poster image
-        const currentPoster = document.getElementById('current-poster');
-        if (currentPoster) {
-            currentPoster.src = `${IMAGE_BASE_URL}${posterPath}`;
-        }
-
-        // Update selected state
-        document.querySelectorAll('.poster-option').forEach(img => {
-            img.classList.remove('selected');
-        });
-        const target = event.target;
-        if (target) target.classList.add('selected');
     }
 };
 
