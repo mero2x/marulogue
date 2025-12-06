@@ -772,13 +772,39 @@ window.selectPoster = async function (id, posterPath) {
 };
 
 async function exportData() {
+    if (!confirm('Save all changes to Contentful? This will update your movie library.')) {
+        return;
+    }
+
     try {
+        // Step 1: Fetch ALL existing movies from Contentful
+        const fetchResponse = await fetch('/api/movies?page=1&type=movie&limit=9999');
+        const fetchData = await fetchResponse.json();
+        let allMovies = fetchData.movies || [];
+
+        // Also fetch TV shows
+        const fetchTVResponse = await fetch('/api/movies?page=1&type=tv&limit=9999');
+        const fetchTVData = await fetchTVResponse.json();
+        const allTV = fetchTVData.movies || [];
+
+        // Combine all existing content
+        allMovies = [...allMovies, ...allTV];
+
+        // Step 2: Merge current watchedMovies into allMovies
+        // Remove any movies from allMovies that match IDs in watchedMovies
+        const watchedIds = new Set(watchedMovies.map(m => m.id));
+        allMovies = allMovies.filter(m => !watchedIds.has(m.id));
+
+        // Add all current watchedMovies
+        allMovies = [...allMovies, ...watchedMovies];
+
+        // Step 3: Save the merged list
         const response = await fetch('/api/save-movies', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(watchedMovies)
+            body: JSON.stringify(allMovies)
         });
 
         const result = await response.json();
