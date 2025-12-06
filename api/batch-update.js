@@ -55,6 +55,7 @@ module.exports = async (req, res) => {
             } else if (change.type === 'update') {
                 const index = currentMovies.findIndex(m => m.id === change.id);
                 if (index !== -1) {
+                    console.log(`Updating movie ${change.id}:`, change.updates);
                     currentMovies[index] = { ...currentMovies[index], ...change.updates };
                     updated++;
                 }
