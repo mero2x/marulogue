@@ -330,6 +330,25 @@ app.get('/api/movies', async (req, res) => {
     }
 });
 
+// API endpoint to fetch fresh data (no cache - uses Management API)
+app.get('/api/fresh-movies', async (req, res) => {
+    try {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+
+        const environment = await getEnvironment();
+        const entry = await environment.getEntry(ENTRY_ID);
+        const allItems = entry.fields[FIELD_ID]['en-US'] || [];
+
+        res.json({
+            movies: allItems,
+            total: allItems.length
+        });
+    } catch (error) {
+        console.error('Error fetching fresh data:', error);
+        res.status(500).json({ error: 'Failed to fetch data', details: error.message });
+    }
+});
+
 // API endpoint for stats
 app.get('/api/stats', async (req, res) => {
     try {

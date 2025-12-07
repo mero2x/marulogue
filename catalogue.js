@@ -840,18 +840,18 @@ async function exportData() {
     }
 
     try {
-        // Step 1: Fetch ALL existing movies from Contentful
-        const fetchResponse = await fetch('/api/movies?page=1&type=movie&limit=9999');
+        // Step 1: Fetch ALL existing data from Contentful (using fresh endpoint - no cache)
+        console.log('Fetching fresh data from Contentful...');
+        const fetchResponse = await fetch('/api/fresh-movies');
+
+        if (!fetchResponse.ok) {
+            throw new Error('Failed to fetch fresh data');
+        }
+
         const fetchData = await fetchResponse.json();
         let allMovies = fetchData.movies || [];
 
-        // Also fetch TV shows
-        const fetchTVResponse = await fetch('/api/movies?page=1&type=tv&limit=9999');
-        const fetchTVData = await fetchTVResponse.json();
-        const allTV = fetchTVData.movies || [];
-
-        // Combine all existing content
-        allMovies = [...allMovies, ...allTV];
+        console.log(`Fetched ${allMovies.length} total items from Contentful`);
 
         // Step 2: Merge current watchedMovies into allMovies
         // Remove any movies from allMovies that match IDs in watchedMovies
@@ -860,6 +860,8 @@ async function exportData() {
 
         // Add all current watchedMovies
         allMovies = [...allMovies, ...watchedMovies];
+
+        console.log(`Saving ${allMovies.length} total items`);
 
         // Step 3: Save the merged list
         const response = await fetch('/api/save-movies', {
