@@ -497,10 +497,13 @@ async function openMoviePanel(id) {
 
     // In Public mode, we might not want to fetch from API if we have data in JSON.
     // But JSON might be minimal. Let's try to find in local first.
-    let item = watchedMovies.find(m => m.id === id);
-    if (!item && isAdmin) {
-        item = searchResults.find(m => m.id === id);
+    // Use == for comparison to handle string/number type differences
+    let item = watchedMovies.find(m => m.id == id);
+    if (!item) {
+        item = searchResults.find(m => m.id == id);
     }
+
+    console.log('OpenPanel - Found item:', item ? item.title : 'NOT FOUND', 'production_countries:', item?.production_countries);
 
     try {
         let data = item;
