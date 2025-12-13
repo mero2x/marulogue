@@ -43,21 +43,56 @@ module.exports = async (req, res) => {
         const directorCount = {};
 
         filteredMovies.forEach(item => {
-            // Count Countries
-            if (item.production_countries && Array.isArray(item.production_countries)) {
-                item.production_countries.forEach(c => {
-                    // Handle both object {name: 'US'} and string 'US' formats
-                    const name = typeof c === 'string' ? c : (c.name || c.iso_3166_1);
-                    if (name) {
-                        countries.add(name);
-                        countryCount[name] = (countryCount[name] || 0) + 1;
-                    }
-                });
-            } else if (item.origin_country && Array.isArray(item.origin_country)) {
-                item.origin_country.forEach(c => {
-                    countries.add(c);
-                    countryCount[c] = (countryCount[c] || 0) + 1;
-                });
+            // HYBRID COUNTRY COUNTING:
+            // - For English films: use production_countries[0] (since en could be US, UK, IE, AU, etc.)
+            // - For non-English films: use original_language (more accurate for origin)
+            // - For TV shows: use origin_country
+
+            let country = null;
+
+            // Language code to country mapping
+            const languageToCountry = {
+                'ja': 'JP', 'ko': 'KR', 'zh': 'CN', 'fr': 'FR', 'de': 'DE',
+                'es': 'ES', 'it': 'IT', 'pt': 'BR', 'hi': 'IN', 'ru': 'RU',
+                'th': 'TH', 'id': 'ID', 'vi': 'VN', 'tl': 'PH', 'sv': 'SE',
+                'da': 'DK', 'no': 'NO', 'fi': 'FI', 'nl': 'NL', 'pl': 'PL',
+                'tr': 'TR', 'ar': 'SA', 'he': 'IL', 'cs': 'CZ', 'hu': 'HU',
+                'ro': 'RO', 'el': 'GR', 'uk': 'UA', 'ms': 'MY', 'ta': 'IN',
+                'te': 'IN', 'bn': 'BD', 'ml': 'IN', 'cn': 'CN'
+            };
+
+            const isMovie = item.media_type === 'movie' || (!item.media_type && !item.first_air_date);
+
+            if (isMovie) {
+                // For movies: check original_language
+                const lang = item.original_language;
+
+                // Ambiguous languages that need production_countries to determine country:
+                // - 'en' could be US, UK, IE, AU, CA, NZ, etc.
+                // - 'zh' could be China (CN), Hong Kong (HK), or Taiwan (TW)
+                const ambiguousLanguages = ['en', 'zh'];
+
+                if (lang && !ambiguousLanguages.includes(lang)) {
+                    // Non-ambiguous language: use language to determine country
+                    country = languageToCountry[lang];
+                }
+
+                // If English OR language mapping not found: use first production country
+                if (!country && item.production_countries && item.production_countries.length > 0) {
+                    const firstCountry = item.production_countries[0];
+                    country = typeof firstCountry === 'string' ? firstCountry : (firstCountry.iso_3166_1 || firstCountry.name);
+                }
+            } else {
+                // For TV shows: use origin_country (this was already working correctly)
+                if (item.origin_country && item.origin_country.length > 0) {
+                    country = item.origin_country[0];
+                }
+            }
+
+            // Count the country (only once per item now!)
+            if (country) {
+                countries.add(country);
+                countryCount[country] = (countryCount[country] || 0) + 1;
             }
 
             // Count Directors/Creators
