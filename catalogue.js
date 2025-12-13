@@ -521,9 +521,24 @@ async function openMoviePanel(id) {
         const title = data.title || data.name;
         const date = data.release_date || data.first_air_date;
         const year = date ? date.split('-')[0] : 'N/A';
-        const country = data.production_countries && data.production_countries.length > 0
-            ? getCountryName(data.production_countries[0].name)
-            : (data.origin_country ? getCountryName(data.origin_country[0]) : 'Unknown');
+
+        // Use Contentful data for country (respects manual edits), fallback to TMDB if not available
+        let country = 'Unknown';
+        if (item && item.production_countries && item.production_countries.length > 0) {
+            // Use Contentful data (has manual edits)
+            const firstCountry = item.production_countries[0];
+            const countryCode = typeof firstCountry === 'string' ? firstCountry : (firstCountry.iso_3166_1 || firstCountry.name);
+            country = getCountryName(countryCode);
+        } else if (item && item.origin_country && item.origin_country.length > 0) {
+            // TV show from Contentful
+            country = getCountryName(item.origin_country[0]);
+        } else if (data.production_countries && data.production_countries.length > 0) {
+            // Fallback to TMDB data
+            country = getCountryName(data.production_countries[0].name);
+        } else if (data.origin_country) {
+            // Fallback to TMDB for TV
+            country = getCountryName(data.origin_country[0]);
+        }
 
         let creatorOrDirector = 'Unknown';
         if (currentType === 'movie') {
