@@ -1,8 +1,7 @@
-const contentful = require('contentful');
+const contentful = require('contentful-management');
 
 const client = contentful.createClient({
-    space: process.env.CONTENTFUL_SPACE_ID || '6bzr8twttvj3',
-    accessToken: process.env.CONTENTFUL_ACCESS_TOKEN || 'MdfnSyUm-p9jlDCG7HCyUuokTZAhyK7UxuXdKA_vXUo'
+    accessToken: process.env.CONTENTFUL_MANAGEMENT_TOKEN
 });
 
 module.exports = async (req, res) => {
@@ -22,8 +21,12 @@ module.exports = async (req, res) => {
         const sort = req.query.sort || 'latest';
         const searchQuery = req.query.search || '';
 
-        const entry = await client.getEntry(process.env.CONTENTFUL_ENTRY_ID || 'movieList');
-        let allItems = entry.fields.contents || [];
+        // Use Management API to avoid Delivery API rate limits
+        const space = await client.getSpace(process.env.CONTENTFUL_SPACE_ID);
+        const environment = await space.getEnvironment('master');
+        const entry = await environment.getEntry(process.env.CONTENTFUL_ENTRY_ID || 'movieList');
+
+        let allItems = entry.fields[process.env.CONTENTFUL_FIELD_ID || 'contents']['en-US'] || [];
 
         // Search filter (if query provided)
         if (searchQuery) {
