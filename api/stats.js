@@ -1,7 +1,8 @@
-const contentful = require('contentful-management');
+const contentful = require('contentful');
 
 const client = contentful.createClient({
-    accessToken: process.env.CONTENTFUL_MANAGEMENT_TOKEN
+    space: process.env.CONTENTFUL_SPACE_ID || '6bzr8twttvj3',
+    accessToken: process.env.CONTENTFUL_ACCESS_TOKEN || 'MdfnSyUm-p9jlDCG7HCyUuokTZAhyK7UxuXdKA_vXUo'
 });
 
 module.exports = async (req, res) => {
@@ -17,16 +18,14 @@ module.exports = async (req, res) => {
     try {
         const type = req.query.type || 'movie'; // 'movie' or 'tv'
 
-        // Use Management API to avoid Delivery API rate limits
-        const space = await client.getSpace(process.env.CONTENTFUL_SPACE_ID);
-        const environment = await space.getEnvironment('master');
-        const entry = await environment.getEntry('movieList');
+        // Fetch the movie list entry from Contentful
+        const entry = await client.getEntry('movieList');
 
-        if (!entry || !entry.fields || !entry.fields[process.env.CONTENTFUL_FIELD_ID || 'contents']) {
+        if (!entry || !entry.fields || !entry.fields.contents) {
             return res.status(404).json({ error: 'Movie list not found' });
         }
 
-        let allMovies = entry.fields[process.env.CONTENTFUL_FIELD_ID || 'contents']['en-US'];
+        let allMovies = entry.fields.contents;
 
         // Filter by media type
         const filteredMovies = allMovies.filter(item => {

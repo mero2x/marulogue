@@ -1,0 +1,132 @@
+{
+  "timestamp": "2025-12-13T18:21:56.170Z",
+  "totalMovies": 1988,
+  "needEnrichment": 1988,
+  "sampleSize": 20,
+  "sampleResults": [
+    {
+      "title": "Coco",
+      "id": 354912,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "The Killing of a Sacred Deer",
+      "id": 399057,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "The Garfield Movie",
+      "id": 748783,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "Civil War",
+      "id": 929590,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "Tetris",
+      "id": 726759,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "Dungeons & Dragons: Honor Among Thieves",
+      "id": 493529,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "Lava",
+      "id": 286192,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "Bao",
+      "id": 514754,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "Chris Rock: Selective Outrage",
+      "id": 1065890,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "Creep 2",
+      "id": 396493,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "Mickey 17",
+      "id": 696506,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "In the Mood for Love 2001",
+      "id": 1430370,
+      "original_language": "cn",
+      "mapped_country": "China"
+    },
+    {
+      "title": "Companion",
+      "id": 1084199,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "Presence",
+      "id": 1140535,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "One of Them Days",
+      "id": 1280672,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "Nosferatu",
+      "id": 426063,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "The Brutalist",
+      "id": 549509,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "Wallace & Gromit: Vengeance Most Fowl",
+      "id": 929204,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "Better Man",
+      "id": 799766,
+      "original_language": "en",
+      "mapped_country": "USA"
+    },
+    {
+      "title": "Russell Peters: Act Your Age",
+      "id": 1398204,
+      "original_language": "en",
+      "mapped_country": "USA"
+    }
+  ],
+  "languageDistribution": {
+    "en": 19,
+    "cn": 1
+  }
+}
