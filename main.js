@@ -2,22 +2,7 @@ const ITEMS_PER_PAGE = 4;
 let currentPage = 1;
 let galleryItems = [];
 
-// Contentful Configuration
-const SPACE_ID = '6bzr8twttvj3';
-const ACCESS_TOKEN = 'rGPH1BHm2FXXDtm0XkF05sMSo9idGXJOO6QHXqsoqig';
-
-let client;
-
-try {
-  if (window.contentful) {
-    client = window.contentful.createClient({
-      space: SPACE_ID,
-      accessToken: ACCESS_TOKEN
-    });
-  }
-} catch (e) {
-  console.error('Error initializing Contentful client:', e);
-}
+// No longer using Contentful browser SDK - using serverless API instead
 
 document.addEventListener('DOMContentLoaded', async () => {
   await fetchPosts();
@@ -39,40 +24,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupNavigation();
 });
 
-// Data Mapping Function
+// Data Mapping Function (for legacy compatibility)
 function mapContentfulPost(entry) {
-  const fields = entry.fields;
-  const sys = entry.sys;
-
-  return {
-    id: sys.id,
-    title: fields.title || 'Untitled',
-    date: sys.createdAt,
-    type: fields.type || (fields.images && fields.images.length > 0 ? 'photoset' : (fields.image ? 'photo' : 'text')),
-    category: fields.category || 'Uncategorized',
-    body: fields.body || '', // Keep as object for Rich Text, string for others
-    images: fields.images ? fields.images.map(img => img.fields.file.url) : [],
-    image: fields.image ? fields.image.fields.file.url : null
-  };
+  // Entry is already mapped by the API
+  return entry;
 }
 
 async function fetchPosts() {
   try {
-    // Fetch Contentful Posts
-    let contentfulPosts = [];
-    if (client) {
-      try {
-        const response = await client.getEntries({
-          content_type: 'post',
-          order: '-sys.createdAt'
-        });
-        contentfulPosts = response.items.map(mapContentfulPost);
-      } catch (err) {
-        console.warn('Failed to fetch from Contentful:', err);
-      }
-    }
+    // Fetch from serverless API (avoids Contentful rate limits)
+    const response = await fetch('/api/posts');
 
-    galleryItems = contentfulPosts;
+    if (response.ok) {
+      const data = await response.json();
+      galleryItems = data.posts || [];
+      console.log(`Loaded ${galleryItems.length} posts from API`);
+    } else {
+      console.warn('Failed to fetch posts from API:', response.statusText);
+      galleryItems = [];
+    }
 
     // Sort by date (newest first)
     galleryItems.sort((a, b) => new Date(b.date) - new Date(a.date));
